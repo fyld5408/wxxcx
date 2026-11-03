@@ -1,0 +1,25 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  web:
+    error:
+      include-message: always
+      include-stacktrace: never
+  application:
+    name: wxxcx
+  datasource:
+    url: jdbc:mysql://${MYSQL_ADDRESS:127.0.0.1:3306}/${MYSQL_DATABASE:wxxcx}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:}
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 5000
+  flyway:
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+
+logging:
+  level:
+    com.fyld.wxxcx: info

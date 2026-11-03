@@ -1,0 +1,40 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "小区投票"
+			}
+		},
+		{
+			"path": "pages/register/index",
+			"style": {
+				"navigationBarTitleText": "完善信息"
+			}
+		},
+		{
+			"path": "pages/vote-create/index",
+			"style": {
+				"navigationBarTitleText": "发起投票"
+			}
+		},
+		{
+			"path": "pages/topics/index",
+			"style": {
+				"navigationBarTitleText": "投票结果"
+			}
+		},
+		{
+			"path": "pages/topic-detail/index",
+			"style": {
+				"navigationBarTitleText": "投票明细"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "小区投票",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	}
+}

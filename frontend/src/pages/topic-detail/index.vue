@@ -34,7 +34,7 @@
       <view class="card">
         <view class="detail-head">
           <text class="subtitle">投票明细（{{ detail.votes.length }}）</text>
-          <text class="expand" v-if="keyword" @click="keyword = ''">清空搜索</text>
+          <text class="expand" v-if="keyword" @click="clearKeyword">清空搜索</text>
         </view>
         <input
           class="search"
@@ -52,10 +52,13 @@
             {{ vote.choice === 'SUPPORT' ? '支持' : '不支持' }}
           </text>
         </view>
-        <text class="expand" v-if="!keyword && detail.votes.length > shownVotes.length" @click="expanded = true">
-          展开全部（{{ detail.votes.length }}）
+        <text class="expand" v-if="matched && filteredVotes.length > shownVotes.length">
+          匹配 {{ filteredVotes.length }} 条，仅显示前 {{ SEARCH_LIMIT }} 条，请缩小搜索范围
         </text>
-        <text class="expand" v-else-if="!keyword && expanded" @click="expanded = false">收起</text>
+        <text class="expand" v-else-if="!matched && shownVotes.length < filteredVotes.length" @click="visibleCount += PAGE_SIZE">
+          加载更多（剩余 {{ filteredVotes.length - shownVotes.length }}）
+        </text>
+        <text class="expand" v-else-if="!matched && visibleCount > INITIAL_SIZE" @click="visibleCount = INITIAL_SIZE">收起</text>
       </view>
     </template>
   </view>
@@ -63,25 +66,47 @@
 
 <script setup lang="ts">
 import { onLoad } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { getTopic, type TopicDetail } from '@/utils/api'
+
+/** 一次渲染的明细条数：小程序 setData 撑不住上千条节点 */
+const INITIAL_SIZE = 5
+const PAGE_SIZE = 50
+const SEARCH_LIMIT = 50
 
 const detail = ref<TopicDetail | null>(null)
 const loading = ref(true)
 const error = ref('')
 const keyword = ref('')
-const expanded = ref(false)
+const debouncedKeyword = ref('')
+const visibleCount = ref(INITIAL_SIZE)
+
+const matched = computed(() => debouncedKeyword.value.trim() !== '')
+
+let debounceTimer: ReturnType<typeof setTimeout> | undefined
+watch(keyword, (value) => {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    debouncedKeyword.value = value
+  }, 250)
+})
+onUnmounted(() => clearTimeout(debounceTimer))
+
+function clearKeyword() {
+  clearTimeout(debounceTimer)
+  keyword.value = ''
+  debouncedKeyword.value = ''
+}
 
 const filteredVotes = computed(() => {
   const votes = detail.value?.votes ?? []
-  const kw = keyword.value.trim()
+  const kw = debouncedKeyword.value.trim()
   if (!kw) return votes
   return votes.filter((v) => v.address.includes(kw))
 })
 
-/** 搜索时全部展示匹配项；默认只出 5 条，可展开 */
 const shownVotes = computed(() =>
-  keyword.value.trim() || expanded.value ? filteredVotes.value : filteredVotes.value.slice(0, 5),
+  filteredVotes.value.slice(0, matched.value ? SEARCH_LIMIT : visibleCount.value),
 )
 
 async function load(id: number) {

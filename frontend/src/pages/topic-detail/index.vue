@@ -25,22 +25,35 @@
         </view>
         <view class="summary-row" v-for="(row, index) in detail.buildingSummary" :key="index">
           <text class="col-key">{{ row.building }}-{{ row.unit }}</text>
-          <text class="col-count support-num">{{ row.supportCount }}</text>
-          <text class="col-count oppose-num">{{ row.opposeCount }}</text>
+          <text
+            class="col-count support-num"
+            :class="{ pick: row.supportCount > 0 }"
+            @click="pickBuilding(row, 'SUPPORT')"
+          >{{ row.supportCount }}</text>
+          <text
+            class="col-count oppose-num"
+            :class="{ pick: row.opposeCount > 0 }"
+            @click="pickBuilding(row, 'OPPOSE')"
+          >{{ row.opposeCount }}</text>
           <text class="col-count">{{ row.supportCount + row.opposeCount }}</text>
         </view>
       </view>
 
-      <view class="card">
+      <view class="card" id="vote-detail">
         <view class="detail-head">
-          <text class="subtitle">投票明细（{{ detail.votes.length }}）</text>
-          <text class="expand" v-if="keyword" @click="clearKeyword">清空搜索</text>
+          <text class="subtitle">投票明细（{{ filteredVotes.length }}）</text>
+          <text class="expand" v-if="filtering" @click="clearFilter">清空筛选</text>
         </view>
         <input
           class="search"
           v-model="keyword"
           placeholder="输入 栋 / 单元 / 房号 搜索，如 7-1-902 或 902"
         />
+        <view class="choices">
+          <text class="chip" :class="{ active: !choiceFilter }" @click="choiceFilter = ''">全部</text>
+          <text class="chip" :class="{ active: choiceFilter === 'SUPPORT' }" @click="choiceFilter = 'SUPPORT'">支持</text>
+          <text class="chip" :class="{ active: choiceFilter === 'OPPOSE' }" @click="choiceFilter = 'OPPOSE'">不支持</text>
+        </view>
         <text class="empty" v-if="!detail.votes.length">还没有人投票</text>
         <text class="empty" v-else-if="!filteredVotes.length">没有匹配的投票</text>
         <view class="item" v-for="(vote, index) in shownVotes" :key="index">
@@ -52,13 +65,13 @@
             {{ vote.choice === 'SUPPORT' ? '支持' : '不支持' }}
           </text>
         </view>
-        <text class="expand" v-if="matched && filteredVotes.length > shownVotes.length">
+        <text class="expand" v-if="filtering && filteredVotes.length > shownVotes.length">
           匹配 {{ filteredVotes.length }} 条，仅显示前 {{ SEARCH_LIMIT }} 条，请缩小搜索范围
         </text>
-        <text class="expand" v-else-if="!matched && shownVotes.length < filteredVotes.length" @click="visibleCount += PAGE_SIZE">
+        <text class="expand" v-else-if="!filtering && shownVotes.length < filteredVotes.length" @click="visibleCount += PAGE_SIZE">
           加载更多（剩余 {{ filteredVotes.length - shownVotes.length }}）
         </text>
-        <text class="expand" v-else-if="!matched && visibleCount > INITIAL_SIZE" @click="visibleCount = INITIAL_SIZE">收起</text>
+        <text class="expand" v-else-if="!filtering && visibleCount > INITIAL_SIZE" @click="visibleCount = INITIAL_SIZE">收起</text>
       </view>
     </template>
   </view>
@@ -79,9 +92,12 @@ const loading = ref(true)
 const error = ref('')
 const keyword = ref('')
 const debouncedKeyword = ref('')
+const choiceFilter = ref<'' | 'SUPPORT' | 'OPPOSE'>('')
 const visibleCount = ref(INITIAL_SIZE)
 
-const matched = computed(() => debouncedKeyword.value.trim() !== '')
+const filtering = computed(
+  () => debouncedKeyword.value.trim() !== '' || choiceFilter.value !== '',
+)
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
 watch(keyword, (value) => {
@@ -92,21 +108,36 @@ watch(keyword, (value) => {
 })
 onUnmounted(() => clearTimeout(debounceTimer))
 
-function clearKeyword() {
+function clearFilter() {
   clearTimeout(debounceTimer)
   keyword.value = ''
   debouncedKeyword.value = ''
+  choiceFilter.value = ''
+}
+
+/** 点汇总里的数字：带入「栋-单元-」前缀 + 对应选项，立即生效并滚到明细 */
+function pickBuilding(row: { building: string; unit: string; supportCount: number; opposeCount: number }, choice: 'SUPPORT' | 'OPPOSE') {
+  const count = choice === 'SUPPORT' ? row.supportCount : row.opposeCount
+  if (count === 0) return
+  const prefix = `${row.building}-${row.unit}-`
+  clearTimeout(debounceTimer)
+  keyword.value = prefix
+  debouncedKeyword.value = prefix
+  choiceFilter.value = choice
+  visibleCount.value = INITIAL_SIZE
+  uni.pageScrollTo({ selector: '#vote-detail', duration: 300 })
 }
 
 const filteredVotes = computed(() => {
   const votes = detail.value?.votes ?? []
   const kw = debouncedKeyword.value.trim()
-  if (!kw) return votes
-  return votes.filter((v) => v.address.includes(kw))
+  const choice = choiceFilter.value
+  if (!kw && !choice) return votes
+  return votes.filter((v) => (!kw || v.address.includes(kw)) && (!choice || v.choice === choice))
 })
 
 const shownVotes = computed(() =>
-  filteredVotes.value.slice(0, matched.value ? SEARCH_LIMIT : visibleCount.value),
+  filteredVotes.value.slice(0, filtering.value ? SEARCH_LIMIT : visibleCount.value),
 )
 
 async function load(id: number) {
@@ -224,6 +255,29 @@ onLoad((query) => {
   padding: 24rpx 0 4rpx;
   font-size: 26rpx;
   color: #3370ff;
+}
+
+.choices {
+  display: flex;
+  gap: 16rpx;
+  margin: 12rpx 0 8rpx;
+}
+
+.chip {
+  font-size: 24rpx;
+  padding: 8rpx 28rpx;
+  border-radius: 100rpx;
+  background: #f2f3f5;
+  color: #646a73;
+}
+
+.chip.active {
+  background: #1f2329;
+  color: #ffffff;
+}
+
+.pick {
+  text-decoration: underline;
 }
 
 .row {

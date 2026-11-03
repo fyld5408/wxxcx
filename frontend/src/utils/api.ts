@@ -106,8 +106,16 @@ export interface VoteItem {
   votedAt: string
 }
 
+export interface BuildingSummary {
+  building: string
+  unit: string
+  supportCount: number
+  opposeCount: number
+}
+
 export interface TopicDetail extends Topic {
   votes: VoteItem[]
+  buildingSummary: BuildingSummary[]
 }
 
 export interface VoteResult {

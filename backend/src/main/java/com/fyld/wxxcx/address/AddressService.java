@@ -1,10 +1,12 @@
 package com.fyld.wxxcx.address;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
@@ -12,6 +14,9 @@ import java.util.List;
 
 @Service
 public class AddressService {
+
+    /** 同一门牌只允许一个业主登记 */
+    public static final String DUP_ADDRESS_MESSAGE = "您输入的业主信息已被注册，如有疑问请联系管理员";
 
     private static final String SELECT_SQL =
             "SELECT id, province, city, community, building, unit, room_no, created_at FROM user_address";
@@ -39,6 +44,16 @@ public class AddressService {
     }
 
     public UserAddress create(String openid, AddressInput input) {
+        Integer dup = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM user_address "
+                        + "WHERE province = ? AND city = ? AND community = ? AND building = ? AND unit = ? AND room_no = ?",
+                Integer.class,
+                input.province(), input.city(), input.community(),
+                input.building(), input.unit(), input.roomNo());
+        if (dup != null && dup > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, DUP_ADDRESS_MESSAGE);
+        }
+
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(

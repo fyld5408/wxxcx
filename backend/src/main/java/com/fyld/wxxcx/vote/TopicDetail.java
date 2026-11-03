@@ -10,5 +10,6 @@ public record TopicDetail(
         long opposeCount,
         String myChoice,
         LocalDateTime createdAt,
-        List<VoteItem> votes) {
+        List<VoteItem> votes,
+        List<BuildingSummary> buildingSummary) {
 }

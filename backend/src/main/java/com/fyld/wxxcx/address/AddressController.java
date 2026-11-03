@@ -35,7 +35,11 @@ public class AddressController {
         try {
             return addressService.create(currentUser, normalize(input));
         } catch (DuplicateKeyException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "已经登记过了");
+            // uk_openid 撞上是自己重复提交，uk_address 撞上是并发下门牌被抢注
+            if (addressService.findOne(currentUser) != null) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "已经登记过了");
+            }
+            throw new ResponseStatusException(HttpStatus.CONFLICT, AddressService.DUP_ADDRESS_MESSAGE);
         }
     }
 
